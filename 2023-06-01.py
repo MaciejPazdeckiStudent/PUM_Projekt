@@ -7,12 +7,13 @@ import sklearn
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-# from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler, PolynomialFeatures
-# from sklearn.linear_model import LinearRegression, Lasso
-# from sklearn.neighbors import KNeighborsRegressor
-# from sklearn.tree import DecisionTreeRegressor
-# from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LinearRegression, Lasso
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.model_selection import RandomizedSearchCV
+
 
 # Wczytanie danych z pliku CSV 
 data = pd.read_csv('PRSA_data_2010.1.1-2014.12.csv', sep = "," , encoding = 'utf-8')
@@ -142,6 +143,11 @@ plt.ylabel('Korelacja (%)')
 plt.savefig('oczyszczone/korelacje_PM25.png')
 #plt.show()
 
+#pytanie czy usuwamy  najmniej skorelowane cechy ? #todo
+
+# Wykluczanie niektórych kolumn z analizy (np. 'Unnamed: 0', 'Credit_Score')
+exclude_filter = ~data.columns.isin(['year','month','day','hour', 'Timestamp', 'Credit_Score'])
+
 # Przygotowanie danych wejściowych i wyjściowych
 X = data[['TEMP', 'DEWP', 'PRES', 'Iws', 'Is', 'Ir']]  # Przykładowe atrybuty jakości powietrza
 y = data['pm2.5']  # Poziom zanieczyszczenia PM2.5
@@ -154,31 +160,82 @@ print(f"X:\n",
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # regresja liniowa 
+linReg = LinearRegression().fit(X_train, y_train)
+        # to zwraca R^2
+linReg_score_train = linReg.score(X_train, y_train)
+linReg_score_test = linReg.score(X_test, y_test)
+  
+y_predict = linReg.predict(X_test)
+mean_squared_error(y_true=y_test, y_pred= y_predict)
+ 
+print(f"linear:\n", 
+      linReg_score_train)
+# print(f"predict:\n", 
+#       y_predict)
 
 # Regresja liniowa LASSO
+lasso = Lasso(alpha=1.0)
+lasso.fit(X_train, y_train)
+
+lasso_score_train = lasso.score(X_train, y_train)
+lasso_score_test = lasso.score(X_test, y_test)
+
+print(f"lasso:\n", 
+      lasso_score_train)
+
 
 # Regresja wielomianowa stopnia 3/2/..
+poly = PolynomialFeatures(degree=2)
+X_train_poly = poly.fit_transform(X_train)
+X_test_poly = poly.transform(X_test)
+
+lin_reg = LinearRegression()
+lin_reg.fit(X_train_poly, y_train)
+
+poly_score_train = lin_reg.score(X_train_poly, y_train)
+poly_score_test = lin_reg.score(X_test_poly, y_test)
+
+print(f"poly:\n", 
+      poly_score_train)
 
 # Regresja z wykorzystaniem k-NN 
+knn = KNeighborsRegressor()
+knn.fit(X_train, y_train)
+
+knn_score_train = knn.score(X_train, y_train)
+knn_score_test = knn.score(X_test, y_test)
+
+
+print(f"knn:\n", 
+      knn_score_train)
 
 # Regresja z wykorzystaniem drzewa decyzyjnego
+tree = DecisionTreeRegressor(max_depth=8)
+tree.fit(X_train, y_train)
+
+tree_score_train = tree.score(X_train, y_train)
+tree_score_test = tree.score(X_test, y_test)
+
+print(f"tree:\n", 
+      tree_score_train)
 
 # Dane do wyniki
-    # train_scores = [linReg_score_train,lasso_score_train, poly_score_train, knn_score_train, tree_score_train]
-    # test_scores = [linReg_score_test, lasso_score_test, poly_score_test, knn_score_test, tree_score_test]
-    # models = ['Linear Regression','Lasso', 'Polynomial Regression', 'k-NN', 'Decision Tree']
+train_scores = [linReg_score_train,lasso_score_train, poly_score_train, knn_score_train, tree_score_train]
+test_scores = [linReg_score_test, lasso_score_test, poly_score_test, knn_score_test, tree_score_test]
+models = ['Linear Regression','Lasso', 'Polynomial Regression', 'k-NN', 'Decision Tree']
 
 #Wykres z wynikami
-    # plt.figure(figsize=(10, 5))
-    # plt.plot(models, train_scores, label='Train Score')
-    # plt.plot(models, test_scores, label='Test Score')
-    # plt.xlabel('Model')
-    # plt.ylabel('Score')
-    # plt.title('Model Comparison')
-    # plt.legend()
-    # plt.show()
+plt.figure(figsize=(10, 5))
+plt.plot(models, train_scores, label='Train Score')
+plt.plot(models, test_scores, label='Test Score')
+plt.xlabel('Model')
+plt.ylabel('Score')
+plt.title('Model Comparison')
+plt.legend()
+plt.savefig('porownanie/porownanie modeli.png')
+# plt.show()
 
 #Tabela wyników
-    # results = pd.DataFrame({'Model': models,
-    #                         'Train Score': train_scores,
-    #                         'Test Score': test_scores})
+results = pd.DataFrame({'Model': models,
+                        'Train Score': train_scores,
+                        'Test Score': test_scores})
