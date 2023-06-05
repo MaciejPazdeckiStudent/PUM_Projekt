@@ -105,7 +105,12 @@ data = data.dropna(subset=['pm2.5'])
     
     # Usunięcie pierwszej kolumny indeksującej 
 data = data.drop('No', axis=1)
-   
+
+    # dodanie kolumny PM2.5 z poprzedniego zapisu()
+last_pm = data['pm2.5'].shift(1)
+last_pm.iloc[0] = 0
+print(last_pm)
+data['last_pm'] = last_pm
 
 # Wykresy przedstawiające dane z pliku (po wyczyszczeniu)
 
@@ -120,14 +125,18 @@ print(f"data:\n",
 
 # Standaryzacja danych numerycznych 
 scaler = MinMaxScaler()
-col_stand = ['TEMP', 'DEWP', 'PRES', 'Iws', 'Is', 'Ir']
+col_stand = ['TEMP', 'DEWP', 'PRES', 'Iws', 'Is', 'Ir', 'last_pm']
 for i in data[col_stand]:
     data[i] = scaler.fit_transform(data[[i]])
 print(f"cleanded data:\n", 
       data.head())
 
+# Wykresy przedstawiające dane z pliku (po wyczyszczeniu)
+
+
+
   # Wykres 6: korelacje - macierz korelacji między atrybutami jakości powietrza
-corr_matrix = data[['TEMP', 'DEWP', 'PRES', 'Iws', 'Is', 'Ir']].corr()
+corr_matrix = data[['TEMP', 'DEWP', 'PRES', 'Iws', 'Is', 'Ir', 'last_pm']].corr()
 plt.figure(figsize=(10, 8))
 sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
 plt.title('Macierz korelacji między atrybutami jakości powietrza')
@@ -145,16 +154,16 @@ plt.savefig('oczyszczone/korelacje_PM25.png')
 
 #pytanie czy usuwamy  najmniej skorelowane cechy ? #todo
 
-# Wykluczanie niektórych kolumn z analizy (np. 'Unnamed: 0', 'Credit_Score')
+# Wykluczanie niektórych kolumn z analizy ()
 exclude_filter = ~data.columns.isin(['year','month','day','hour', 'Timestamp', 'Credit_Score'])
 
 # Przygotowanie danych wejściowych i wyjściowych
-X = data[['TEMP', 'DEWP', 'PRES', 'Iws', 'Is', 'Ir']]  # Przykładowe atrybuty jakości powietrza
+X = data[['TEMP', 'DEWP', 'PRES', 'Iws', 'Is', 'Ir', 'last_pm']]  # Przykładowe atrybuty jakości powietrza
 y = data['pm2.5']  # Poziom zanieczyszczenia PM2.5
-print(f"y:\n", 
-      y.head())
-print(f"X:\n", 
-      X.head())
+# print(f"y:\n", 
+#       y.head())
+# print(f"X:\n", 
+#       X.head())
 
 # Podział danych na zbiór treningowy i testowy
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -174,7 +183,7 @@ print(f"linear:\n",
 #       y_predict)
 
 # Regresja liniowa LASSO
-lasso = Lasso(alpha=1.0)
+lasso = Lasso(alpha=0.1)
 lasso.fit(X_train, y_train)
 
 lasso_score_train = lasso.score(X_train, y_train)
@@ -199,7 +208,7 @@ print(f"poly:\n",
       poly_score_train)
 
 # Regresja z wykorzystaniem k-NN 
-knn = KNeighborsRegressor()
+knn = KNeighborsRegressor(n_neighbors=30)
 knn.fit(X_train, y_train)
 
 knn_score_train = knn.score(X_train, y_train)
@@ -210,7 +219,7 @@ print(f"knn:\n",
       knn_score_train)
 
 # Regresja z wykorzystaniem drzewa decyzyjnego
-tree = DecisionTreeRegressor(max_depth=8)
+tree = DecisionTreeRegressor(max_depth=5)
 tree.fit(X_train, y_train)
 
 tree_score_train = tree.score(X_train, y_train)
